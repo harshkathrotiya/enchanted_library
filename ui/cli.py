@@ -1,8 +1,5 @@
-"""
-Command-Line Interface for the Enchanted Library system.
-This module provides a text-based interface for interacting with the library.
-"""
-from datetime import datetime
+
+from datetime import datetime, timedelta
 
 from models.book import BookCondition, BookStatus
 from models.user import UserRole
@@ -11,43 +8,41 @@ from patterns.creational.user_factory import UserFactory
 from patterns.creational.book_builder import BookBuilder, BookDirector
 from patterns.behavioral.action_command import CommandInvoker, CheckoutBookCommand, ReturnBookCommand, AddBookCommand
 from patterns.structural.data_persistence import DataPersistence
-from services.preservation import PreservationService
+from services.preservation import PreservationService, PreservationAction
 from services.recommendation import RecommendationService
-
+from patterns.structural.legacy_adapter import LegacyRecordFormat
+from services.fee_calculator import FeeCalculator
 
 class CommandLineInterface:
-    """Command-line interface for the Enchanted Library system."""
 
     def __init__(self, library, catalog, event_manager):
-        """
-        Initialize the CLI with required components.
 
-        Args:
-            library: The library facade
-            catalog: The library catalog
-            event_manager: The event manager
-        """
         self._library = library
         self._catalog = catalog
         self._event_manager = event_manager
         self._command_invoker = CommandInvoker()
-        self._preservation_service = PreservationService()
+        self._preservation_service = PreservationService(catalog, event_manager)
         self._recommendation_service = RecommendationService(catalog)
         self._current_user = None
+        self._data_persistence = DataPersistence()
+
+        from patterns.structural.legacy_adapter import LegacyRecordAdapter
+        from patterns.behavioral.lending_strategy import LendingStrategyContext
+
+        self._legacy_adapter = LegacyRecordAdapter(catalog)
+        self._lending_strategy = LendingStrategyContext()
 
     def start(self):
-        """Start the command-line interface."""
+
         print("Enchanted Library CLI")
         print("Type 'help' for a list of commands, 'exit' to quit.")
 
         while True:
-            # Display current user
             if self._current_user:
                 print(f"\nLogged in as: {self._current_user.name} ({self._current_user.get_role().name})")
             else:
                 print("\nNot logged in")
 
-            # Get command
             command = input("\nEnter command: ").strip().lower()
 
             if command == 'exit':
@@ -57,21 +52,63 @@ class CommandLineInterface:
             self._process_command(command)
 
     def _process_command(self, command):
-        """
-        Process a user command.
+        
 
-        Args:
-            command (str): The command to process
-        """
-        # Split the command into parts
         parts = command.split()
+        cmd = parts[0] if parts else ""
+        args = parts[1:]
+
+        if cmd == 'help':
+            self._show_help()
+        elif cmd == 'login':
+            self._login()
+        elif cmd == 'logout':
+            self._logout()
+        elif cmd == 'search':
+            self._search_books(args)
+        elif cmd == 'view':
+            if len(args) > 0 and args[0] == 'book':
+                self._view_book(args[1:])
+            elif len(args) > 0 and args[0] == 'user':
+                self._view_user(args[1:])
+            else:
+                print("Invalid view command. Try 'view book <id>' or 'view user <id>'")
+        elif cmd == 'add':
+            if len(args) > 0 and args[0] == 'book':
+                self._add_book()
+            elif len(args) > 0 and args[0] == 'user':
+                self._add_user()
+            else:
+                print("Invalid add command. Try 'add book' or 'add user'")
+        elif cmd == 'checkout':
+            self._checkout_book(args)
+        elif cmd == 'return':
+            self._return_book(args)
+        elif cmd == 'recommend':
+            self._recommend_books(args)
+        elif cmd == 'preservation':
+            self._preservation_menu(args)
+        elif cmd == 'import':
+            self._import_legacy_records(args)
+        elif cmd == 'export':
+            self._export_data(args)
+        elif cmd == 'report':
+            self._generate_report(args)
+        elif cmd == 'project':
+            self._manage_research_project(args)
+        elif cmd == 'seasonal':
+            self._manage_seasonal_strategy(args)
+        elif cmd == 'section':
+            self._section_management_menu(args)
+        else:
+            print(f"Unknown command: {command}")
+            print("Type 'help' for a list of commands")
 
         if not parts:
             return
 
         main_command = parts[0]
 
-        # Process the command
         if main_command == 'help':
             self._show_help()
 
@@ -163,7 +200,7 @@ class CommandLineInterface:
             print(f"Unknown command: {main_command}")
 
     def _show_help(self):
-        """Show the help menu."""
+
         print("\nAvailable commands:")
         print("  help                - Show this help menu")
         print("  login               - Log in to the system")
@@ -182,11 +219,19 @@ class CommandLineInterface:
         print("  restore <book_id>   - Send a book for restoration")
         print("  save data           - Save library data to JSON files")
         print("  load data           - Load library data from JSON files")
+        print("\nAdvanced commands:")
+        print("  section             - Access section management menu")
+        print("  preservation        - Access preservation menu")
+        print("  import <format>     - Import legacy records (csv/json/handwritten)")
+        print("  export <format>     - Export library data (csv/json)")
+        print("  report <type>       - Generate reports (overdue/condition/usage)")
+        print("  project             - Manage research projects")
+        print("  seasonal            - Manage seasonal lending strategies")
         print("  undo                - Undo the last command")
         print("  exit                - Exit the system")
 
     def _login(self):
-        """Log in to the system."""
+
         if self._current_user:
             print("Already logged in. Please log out first.")
             return
@@ -203,7 +248,7 @@ class CommandLineInterface:
             print("Invalid email or password")
 
     def _logout(self):
-        """Log out of the system."""
+
         if not self._current_user:
             print("Not logged in")
             return
@@ -212,7 +257,7 @@ class CommandLineInterface:
         self._current_user = None
 
     def _list_books(self):
-        """List all books in the catalog."""
+
         books = list(self._catalog._books.values())
 
         if not books:
@@ -228,7 +273,7 @@ class CommandLineInterface:
             print(f"{book.book_id:<36} | {book.title:<30} | {book.author:<20} | {book.status.name:<10}")
 
     def _list_users(self):
-        """List all users in the catalog."""
+
         if not self._current_user or self._current_user.get_role() != UserRole.LIBRARIAN:
             print("Permission denied: Only librarians can list users")
             return
@@ -248,7 +293,7 @@ class CommandLineInterface:
             print(f"{user.user_id:<36} | {user.name:<20} | {user.email:<25} | {user.get_role().name:<10}")
 
     def _list_sections(self):
-        """List all library sections."""
+
         sections = list(self._catalog._sections.values())
 
         if not sections:
@@ -264,16 +309,9 @@ class CommandLineInterface:
             print(f"{section['id']:<36} | {section['name']:<20} | {section['access_level']:<12} | {len(section['books']):<10}")
 
     def _search_books(self, search_term):
-        """
-        Search for books in the catalog.
 
-        Args:
-            search_term (str): Term to search for
-        """
-        # Search in title and author
         books = self._catalog.search_books(title=search_term) + self._catalog.search_books(author=search_term)
 
-        # Remove duplicates
         unique_books = {}
         for book in books:
             unique_books[book.book_id] = book
@@ -293,12 +331,7 @@ class CommandLineInterface:
             print(f"{book.book_id:<36} | {book.title:<30} | {book.author:<20} | {book.status.name:<10}")
 
     def _view_book(self, book_id):
-        """
-        View details of a book.
 
-        Args:
-            book_id (str): ID of the book to view
-        """
         book = self._catalog.get_book(book_id)
 
         if not book:
@@ -315,7 +348,6 @@ class CommandLineInterface:
         print(f"Status:         {book.status.name}")
         print(f"Location:       {book.location or 'N/A'}")
 
-        # Display book type specific details
         from models.book import GeneralBook, RareBook, AncientScript
 
         if isinstance(book, GeneralBook):
@@ -340,11 +372,9 @@ class CommandLineInterface:
                 for req in book.preservation_requirements:
                     print(f"  - {req}")
 
-        # Display availability information
         availability = self._library.get_book_availability(book_id)
         print(f"\nAvailability:   {availability['message']}")
 
-        # Display lending information
         if book.status == BookStatus.BORROWED:
             lending_records = self._catalog.get_book_lending_records(book_id)
             active_records = [r for r in lending_records if r.status.name == 'ACTIVE']
@@ -361,13 +391,7 @@ class CommandLineInterface:
                     print(f"Late fee:              ${book.get_late_fee(days_overdue):.2f}")
 
     def _view_user(self, user_id):
-        """
-        View details of a user.
 
-        Args:
-            user_id (str): ID of the user to view
-        """
-        # Check permissions
         if not self._current_user or (self._current_user.get_role() != UserRole.LIBRARIAN and self._current_user.user_id != user_id):
             print("Permission denied: You can only view your own user details or you need to be a librarian")
             return
@@ -387,7 +411,6 @@ class CommandLineInterface:
         print(f"Last Login:       {user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else 'Never'}")
         print(f"Active:           {user.active}")
 
-        # Display role specific details
         if user.get_role() == UserRole.LIBRARIAN:
             print(f"Department:       {user.department or 'N/A'}")
             print(f"Staff ID:         {user.staff_id or 'N/A'}")
@@ -407,7 +430,6 @@ class CommandLineInterface:
             print(f"Membership Expiry: {user.membership_expiry.strftime('%Y-%m-%d') if user.membership_expiry else 'N/A'}")
             print(f"Membership Valid: {user.is_membership_valid()}")
 
-        # Display borrowed books
         borrowed_books = self._library.get_user_borrowed_books(user_id)
 
         if borrowed_books:
@@ -424,17 +446,11 @@ class CommandLineInterface:
                 print(f"{book.title:<30} | {book.author:<20} | {due_date.strftime('%Y-%m-%d'):<10} | {status:<10}")
 
     def _checkout_book(self, book_id):
-        """
-        Check out a book.
 
-        Args:
-            book_id (str): ID of the book to check out
-        """
         if not self._current_user:
             print("Please log in first")
             return
 
-        # Create and execute the checkout command
         command = CheckoutBookCommand(self._catalog, book_id, self._current_user.user_id)
         result = self._command_invoker.execute_command(command)
 
@@ -442,58 +458,46 @@ class CommandLineInterface:
             print(result['message'])
             print(f"Due date: {result['due_date'].strftime('%Y-%m-%d')}")
 
-            # Notify the event manager
             book = self._catalog.get_book(book_id)
             self._event_manager.book_borrowed(book, self._current_user)
         else:
             print(f"Error: {result['message']}")
 
     def _return_book(self, book_id):
-        """
-        Return a book.
 
-        Args:
-            book_id (str): ID of the book to return
-        """
         if not self._current_user:
             print("Please log in first")
             return
 
-        # Ask if the book's condition has changed
         condition_changed = input("Has the book's condition changed? (y/n): ").lower() == 'y'
 
-        # Create and execute the return command
         command = ReturnBookCommand(self._catalog, book_id, self._current_user.user_id, condition_changed)
         result = self._command_invoker.execute_command(command)
 
         if result['success']:
             print(result['message'])
 
-            # Notify the event manager
             book = self._catalog.get_book(book_id)
             self._event_manager.book_returned(book, self._current_user)
 
-            # Check if the book needs restoration
             if condition_changed and self._preservation_service.check_needs_restoration(book):
                 print("Note: This book needs restoration")
         else:
             print(f"Error: {result['message']}")
 
     def _add_book(self):
-        """Add a new book to the catalog."""
+
         if not self._current_user or self._current_user.get_role() != UserRole.LIBRARIAN:
             print("Permission denied: Only librarians can add books")
             return
 
         print("\nAdd a new book:")
 
-        # Get book type
         book_type = input("Book type (general/rare/ancient): ").lower()
         if book_type not in ['general', 'rare', 'ancient']:
             print("Invalid book type")
             return
 
-        # Get common book information
         title = input("Title: ")
         author = input("Author: ")
 
@@ -507,12 +511,10 @@ class CommandLineInterface:
         if not isbn:
             isbn = None
 
-        # Get book type specific information
         if book_type == 'general':
             genre = input("Genre (optional): ")
             is_bestseller = input("Is bestseller? (y/n): ").lower() == 'y'
 
-            # Create the book using the builder
             builder = BookBuilder()
             book = (builder
                     .set_book_type('general')
@@ -541,7 +543,6 @@ class CommandLineInterface:
 
             special_handling_notes = input("Special handling notes (optional): ")
 
-            # Create the book using the builder
             builder = BookBuilder()
             book = (builder
                     .set_book_type('rare')
@@ -560,7 +561,6 @@ class CommandLineInterface:
             translation_available = input("Translation available? (y/n): ").lower() == 'y'
             digital_copy_available = input("Digital copy available? (y/n): ").lower() == 'y'
 
-            # Create the book using the builder
             builder = BookBuilder()
             book = (builder
                     .set_book_type('ancient')
@@ -574,12 +574,10 @@ class CommandLineInterface:
                     .set_digital_copy_available(digital_copy_available)
                     .build())
 
-        # Get the section to add the book to
         section_name = input("Section name (optional): ")
         if not section_name:
             section_name = None
 
-        # Create and execute the add book command
         command = AddBookCommand(self._catalog, book, section_name)
         result = self._command_invoker.execute_command(command)
 
@@ -587,31 +585,27 @@ class CommandLineInterface:
             print(result['message'])
             print(f"Book ID: {result['book_id']}")
 
-            # Notify the event manager
             self._event_manager.book_added(book)
         else:
             print(f"Error: {result['message']}")
 
     def _add_user(self):
-        """Add a new user to the catalog."""
+
         if not self._current_user or self._current_user.get_role() != UserRole.LIBRARIAN:
             print("Permission denied: Only librarians can add users")
             return
 
         print("\nAdd a new user:")
 
-        # Get user type
         user_type = input("User type (librarian/scholar/guest): ").lower()
         if user_type not in ['librarian', 'scholar', 'guest']:
             print("Invalid user type")
             return
 
-        # Get common user information
         name = input("Name: ")
         email = input("Email: ")
         password = input("Password: ")
 
-        # Get user type specific information
         if user_type == 'librarian':
             department = input("Department (optional): ")
             staff_id = input("Staff ID (optional): ")
@@ -624,7 +618,6 @@ class CommandLineInterface:
                 print("Invalid admin level")
                 return
 
-            # Create the user
             user = UserFactory.create_user('librarian', name, email, password,
                                           department=department, staff_id=staff_id,
                                           admin_level=admin_level)
@@ -638,12 +631,10 @@ class CommandLineInterface:
                 print("Invalid academic level")
                 return
 
-            # Create the user
             user = UserFactory.create_user('scholar', name, email, password,
                                           institution=institution, field_of_study=field_of_study,
                                           academic_level=academic_level)
 
-            # Add research topics
             while True:
                 topic = input("Add research topic (leave empty to finish): ")
                 if not topic:
@@ -659,31 +650,26 @@ class CommandLineInterface:
                 print("Invalid membership type")
                 return
 
-            # Create the user
             user = UserFactory.create_user('guest', name, email, password,
                                           address=address, phone=phone,
                                           membership_type=membership_type)
 
-            # Set membership expiry
             from datetime import datetime, timedelta
             user.membership_expiry = datetime.now() + timedelta(days=365)
 
-        # Add the user to the catalog
         user_id = self._catalog.add_user(user)
 
         print(f"User added successfully")
         print(f"User ID: {user_id}")
 
-        # Notify the event manager
         self._event_manager.user_registered(user)
 
     def _recommend_books(self):
-        """Get book recommendations."""
+
         if not self._current_user:
             print("Please log in first")
             return
 
-        # Get recommendations for the current user
         recommendations = self._recommendation_service.get_recommendations(self._current_user.user_id)
 
         if not recommendations:
@@ -696,7 +682,6 @@ class CommandLineInterface:
         print("-" * 80)
 
         for book in recommendations:
-            # Determine book type
             from models.book import GeneralBook, RareBook, AncientScript
 
             if isinstance(book, GeneralBook):
@@ -711,12 +696,7 @@ class CommandLineInterface:
             print(f"{book.title:<30} | {book.author:<20} | {book.year_published:<6} | {book_type:<10}")
 
     def _restore_book(self, book_id):
-        """
-        Send a book for restoration.
 
-        Args:
-            book_id (str): ID of the book to restore
-        """
         if not self._current_user or self._current_user.get_role() != UserRole.LIBRARIAN:
             print("Permission denied: Only librarians can send books for restoration")
             return
@@ -727,38 +707,32 @@ class CommandLineInterface:
             print(f"Book not found: {book_id}")
             return
 
-        # Check if the book needs restoration
         if not self._preservation_service.check_needs_restoration(book):
             print("This book does not need restoration")
             proceed = input("Proceed anyway? (y/n): ").lower() == 'y'
             if not proceed:
                 return
 
-        # Get restoration notes
         notes = input("Restoration notes (optional): ")
 
-        # Add the book to the restoration queue
         result = self._preservation_service.add_to_restoration_queue(book, priority=5, notes=notes)
 
         if result['success']:
             print(result['message'])
             print(f"Estimated completion: {result['estimated_completion'].strftime('%Y-%m-%d')}")
 
-            # Update the book in the catalog
             self._catalog.update_book(book)
 
-            # Notify the event manager
             self._event_manager.book_needs_restoration(book)
         else:
             print(f"Error: {result['message']}")
 
     def _save_data(self):
-        """Save library data to JSON files."""
+
         if not self._current_user or self._current_user.get_role() != UserRole.LIBRARIAN:
             print("Permission denied: Only librarians can save library data")
             return
 
-        # Save catalog data
         catalog_file = input("Catalog file name (default: library_catalog.json): ").strip()
         if not catalog_file:
             catalog_file = "library_catalog.json"
@@ -769,7 +743,6 @@ class CommandLineInterface:
         else:
             print(f"Error saving catalog data to {catalog_file}")
 
-        # Save user data
         users_file = input("Users file name (default: library_users.json): ").strip()
         if not users_file:
             users_file = "library_users.json"
@@ -781,12 +754,11 @@ class CommandLineInterface:
             print(f"Error saving user data to {users_file}")
 
     def _load_data(self):
-        """Load library data from JSON files."""
+
         if not self._current_user or self._current_user.get_role() != UserRole.LIBRARIAN:
             print("Permission denied: Only librarians can load library data")
             return
 
-        # Load catalog data
         catalog_file = input("Catalog file name (default: library_catalog.json): ").strip()
         if not catalog_file:
             catalog_file = "library_catalog.json"
@@ -797,7 +769,6 @@ class CommandLineInterface:
         else:
             print(f"Error loading catalog data from {catalog_file}")
 
-        # Load user data
         users_file = input("Users file name (default: library_users.json): ").strip()
         if not users_file:
             users_file = "library_users.json"
@@ -809,10 +780,243 @@ class CommandLineInterface:
             print(f"Error loading user data from {users_file}")
 
     def _undo_last_command(self):
-        """Undo the last command."""
+
         result = self._command_invoker.undo_last_command()
 
         if result['success']:
             print(result['message'])
         else:
             print(f"Error: {result['message']}")
+
+    def _section_management_menu(self, args):
+        
+
+        if not self._current_user:
+            print("Please log in first")
+            return
+
+        if self._current_user.get_role().name != 'LIBRARIAN':
+            print("Permission denied: Only librarians can manage sections")
+            return
+
+        if not args:
+            print("\nSection Management Menu:")
+            print("  section list                - List all sections")
+            print("  section view <id>           - View section details")
+            print("  section add                 - Add a new section")
+            print("  section edit <id>           - Edit a section")
+            print("  section delete <id>         - Delete a section")
+            print("  section assign <book> <section> - Assign a book to a section")
+            print("  section remove <book> <section> - Remove a book from a section")
+            return
+
+        action = args[0]
+
+        if action == 'list':
+            self._list_sections()
+
+        elif action == 'view' and len(args) > 1:
+            self._view_section(args[1])
+
+        elif action == 'add':
+            self._add_section()
+
+        elif action == 'edit' and len(args) > 1:
+            self._edit_section(args[1])
+
+        elif action == 'delete' and len(args) > 1:
+            self._delete_section(args[1])
+
+        elif action == 'assign' and len(args) > 2:
+            self._assign_book_to_section(args[1], args[2])
+
+        elif action == 'remove' and len(args) > 2:
+            self._remove_book_from_section(args[1], args[2])
+
+        else:
+            print("Invalid section command")
+            print("Type 'section' for a list of section commands")
+
+    def _view_section(self, section_id):
+        
+
+        section = self._catalog.get_section(section_id)
+
+        if not section:
+            print(f"Section not found: {section_id}")
+            return
+
+        print(f"\nSection Details: {section['name']}")
+        print("-" * 80)
+        print(f"ID: {section['id']}")
+        print(f"Name: {section['name']}")
+        print(f"Description: {section['description']}")
+
+        access_level_names = ["Public", "Restricted", "Highly Restricted"]
+        access_level = section['access_level']
+        if 0 <= access_level < len(access_level_names):
+            access_level_name = access_level_names[access_level]
+        else:
+            access_level_name = f"Level {access_level}"
+
+        print(f"Access Level: {access_level_name}")
+        print(f"Book Count: {len(section['books'])}")
+
+        if section['books']:
+            print("\nBooks in this section:")
+            print("-" * 80)
+            print(f"{'ID':<36} | {'Title':<30} | {'Author':<20} | {'Status':<10}")
+            print("-" * 80)
+
+            for book_id in section['books']:
+                book = self._catalog.get_book(book_id)
+                if book:
+                    print(f"{book.book_id:<36} | {book.title:<30} | {book.author:<20} | {book.status.name:<10}")
+
+    def _add_section(self):
+        
+
+        print("\nAdd a new section:")
+
+        name = input("Section name: ")
+        if not name:
+            print("Section name is required")
+            return
+
+        for section in self._catalog._sections.values():
+            if section['name'].lower() == name.lower():
+                print(f"Section name '{name}' already exists")
+                return
+
+        description = input("Description: ")
+
+        access_level_options = ["0 - Public", "1 - Restricted", "2 - Highly Restricted"]
+        print("\nAccess Levels:")
+        for option in access_level_options:
+            print(f"  {option}")
+
+        try:
+            access_level = int(input("Access level (0-2): "))
+            if access_level < 0 or access_level > 2:
+                raise ValueError()
+        except ValueError:
+            print("Invalid access level")
+            return
+
+        section_id = self._catalog.add_section(name, description, access_level)
+
+        if section_id:
+            print(f"Section '{name}' added successfully")
+            print(f"Section ID: {section_id}")
+        else:
+            print("Failed to add section")
+
+    def _edit_section(self, section_id):
+        
+
+        section = self._catalog.get_section(section_id)
+
+        if not section:
+            print(f"Section not found: {section_id}")
+            return
+
+        print(f"\nEdit section: {section['name']}")
+
+        name = input(f"Section name [{section['name']}]: ")
+        if not name:
+            name = section['name']
+        else:
+            for s_id, s in self._catalog._sections.items():
+                if s_id != section_id and s['name'].lower() == name.lower():
+                    print(f"Section name '{name}' already exists")
+                    return
+
+        description = input(f"Description [{section['description']}]: ")
+        if not description:
+            description = section['description']
+
+        access_level_options = ["0 - Public", "1 - Restricted", "2 - Highly Restricted"]
+        print("\nAccess Levels:")
+        for option in access_level_options:
+            print(f"  {option}")
+
+        try:
+            access_level_input = input(f"Access level (0-2) [{section['access_level']}]: ")
+            if access_level_input:
+                access_level = int(access_level_input)
+                if access_level < 0 or access_level > 2:
+                    raise ValueError()
+            else:
+                access_level = section['access_level']
+        except ValueError:
+            print("Invalid access level")
+            return
+
+        section['name'] = name
+        section['description'] = description
+        section['access_level'] = access_level
+
+        print(f"Section '{name}' updated successfully")
+
+    def _delete_section(self, section_id):
+        
+
+        section = self._catalog.get_section(section_id)
+
+        if not section:
+            print(f"Section not found: {section_id}")
+            return
+
+        if section['books']:
+            confirm = input(f"Section '{section['name']}' contains {len(section['books'])} books. "
+                          f"Deleting this section will remove these books from the section, "
+                          f"but not from the catalog. Continue? (y/n): ").lower()
+            if confirm != 'y':
+                print("Operation cancelled")
+                return
+
+        if section_id in self._catalog._sections:
+            del self._catalog._sections[section_id]
+            print(f"Section '{section['name']}' deleted successfully")
+        else:
+            print("Failed to delete section")
+
+    def _assign_book_to_section(self, book_id, section_id):
+        
+
+        book = self._catalog.get_book(book_id)
+        if not book:
+            print(f"Book not found: {book_id}")
+            return
+
+        section = self._catalog.get_section(section_id)
+        if not section:
+            print(f"Section not found: {section_id}")
+            return
+
+        result = self._catalog.add_book_to_section(book_id, section_id)
+
+        if result:
+            print(f"Book '{book.title}' assigned to section '{section['name']}' successfully")
+        else:
+            print("Failed to assign book to section")
+
+    def _remove_book_from_section(self, book_id, section_id):
+        
+
+        book = self._catalog.get_book(book_id)
+        if not book:
+            print(f"Book not found: {book_id}")
+            return
+
+        section = self._catalog.get_section(section_id)
+        if not section:
+            print(f"Section not found: {section_id}")
+            return
+
+        if book_id not in section['books']:
+            print(f"Book '{book.title}' is not in section '{section['name']}'")
+            return
+
+        section['books'].remove(book_id)
+        print(f"Book '{book.title}' removed from section '{section['name']}' successfully")

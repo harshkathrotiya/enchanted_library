@@ -1,0 +1,10 @@
+[2025-05-10 15:38:47] book_borrowed: {'book_id': '2ce64f28-3889-435d-90f1-33dee302dc99', 'title': 'The God of Small Things', 'user_id': '048acc86-3899-4686-885f-0140b11d1a78', 'user_name': 'Dr. Vikram Mehta'}
+[2025-05-10 15:48:37] user_registered: {'user_id': '8afaa8a0-112e-441e-b0fe-c59c5045efa2', 'name': 'raj', 'role': 'LIBRARIAN'}
+[2025-05-11 10:39:16] book_borrowed: {'book_id': 'fed5f372-79a5-480b-b521-671b473bf100', 'title': "Midnight's Children", 'user_id': '7be8b3b2-21ea-4b3f-8bf4-da2aca72a44d', 'user_name': 'Arjun Singh'}
+[2025-05-11 10:41:41] book_borrowed: {'book_id': '65dff437-82dc-4029-844a-4466d482033f', 'title': 'Discovery of India', 'user_id': 'a198466d-e4c2-410b-91eb-340a0a726649', 'user_name': 'Dr. Vikram Mehta'}
+[2025-05-11 11:20:37] book_borrowed: {'book_id': '0544ec21-7175-4f6b-9fcd-0425af3f4217', 'title': "Midnight's Children", 'user_id': 'bee58f18-1bac-4a1d-a2d1-2a357e4a70ff', 'user_name': 'Aarav Sharma'}
+[2025-05-11 11:20:47] book_returned: {'book_id': '0544ec21-7175-4f6b-9fcd-0425af3f4217', 'title': "Midnight's Children", 'user_id': 'bee58f18-1bac-4a1d-a2d1-2a357e4a70ff', 'user_name': 'Aarav Sharma'}
+[2025-05-11 11:22:58] book_borrowed: {'book_id': '35706d90-8b57-4beb-8fe0-f9b49a530142', 'title': 'Gitanjali (First Edition)', 'user_id': 'a73d6dd4-3aff-4372-a763-2752fa8b7f91', 'user_name': 'Dr. Vikram Mehta'}
+[2025-05-11 11:23:11] book_returned: {'book_id': '35706d90-8b57-4beb-8fe0-f9b49a530142', 'title': 'Gitanjali (First Edition)', 'user_id': 'a73d6dd4-3aff-4372-a763-2752fa8b7f91', 'user_name': 'Dr. Vikram Mehta'}
+[2025-05-11 11:24:16] book_borrowed: {'book_id': '35706d90-8b57-4beb-8fe0-f9b49a530142', 'title': 'Gitanjali (First Edition)', 'user_id': 'f4ac0cce-8f4c-4c5b-8dc4-4a019849f7cb', 'user_name': 'Arjun Singh'}
+[2025-05-11 11:24:21] book_returned: {'book_id': '35706d90-8b57-4beb-8fe0-f9b49a530142', 'title': 'Gitanjali (First Edition)', 'user_id': 'f4ac0cce-8f4c-4c5b-8dc4-4a019849f7cb', 'user_name': 'Arjun Singh'}

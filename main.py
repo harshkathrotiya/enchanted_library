@@ -1,7 +1,4 @@
-"""
-Main application for the Enchanted Library system.
-This module serves as the entry point for the library management system.
-"""
+
 import sys
 from datetime import datetime, timedelta
 
@@ -19,128 +16,106 @@ from patterns.behavioral.notification_observer import (
 from ui.cli import CommandLineInterface
 from ui.gui.app import launch_gui
 
-
 def initialize_sample_data():
-    """Initialize the library with sample data for testing."""
+
     catalog = Catalog()
 
-    # Create some sample books
     books = [
-        BookFactory.create_book('general', 'The Great Gatsby', 'F. Scott Fitzgerald', 1925,
-                               isbn='9780743273565', genre='Fiction'),
-        BookFactory.create_book('general', 'To Kill a Mockingbird', 'Harper Lee', 1960,
-                               isbn='9780061120084', genre='Fiction'),
-        BookFactory.create_book('general', 'The Hobbit', 'J.R.R. Tolkien', 1937,
-                               isbn='9780547928227', genre='Fantasy'),
-        BookFactory.create_book('rare', 'Pride and Prejudice (First Edition)', 'Jane Austen', 1813,
-                               estimated_value=15000, rarity_level=8),
-        BookFactory.create_book('rare', 'The Origin of Species', 'Charles Darwin', 1859,
-                               estimated_value=8000, rarity_level=7),
-        BookFactory.create_book('ancient', 'The Iliad', 'Homer', -800,
-                               origin='Ancient Greece', language='Ancient Greek', translation_available=True)
+        BookFactory.create_book('general', 'The White Tiger', 'Aravind Adiga', 2008,
+                               isbn='9781416562603', genre='Fiction'),
+        BookFactory.create_book('general', 'The God of Small Things', 'Arundhati Roy', 1997,
+                               isbn='9780679457312', genre='Fiction'),
+        BookFactory.create_book('general', 'Midnight\'s Children', 'Salman Rushdie', 1981,
+                               isbn='9780099578512', genre='Fantasy'),
+        BookFactory.create_book('rare', 'Gitanjali (First Edition)', 'Rabindranath Tagore', 1910,
+                               estimated_value=18000, rarity_level=9),
+        BookFactory.create_book('rare', 'Discovery of India', 'Jawaharlal Nehru', 1946,
+                               estimated_value=12000, rarity_level=8),
+        BookFactory.create_book('ancient', 'Arthashastra', 'Kautilya', -300,
+                               origin='Ancient India', language='Sanskrit', translation_available=True)
     ]
 
-    # Add books to the catalog
     for book in books:
         catalog.add_book(book)
 
-    # Create some sample users
     users = [
-        UserFactory.create_user('librarian', 'Alice Johnson', 'alice@library.com', 'password123',
+        UserFactory.create_user('librarian', 'Aarav Sharma', 'aarav@library.com', 'password123',
                                department='Fiction', staff_id='L001', admin_level=3),
-        UserFactory.create_user('librarian', 'Bob Smith', 'bob@library.com', 'password123',
+        UserFactory.create_user('librarian', 'Priya Patel', 'priya@library.com', 'password123',
                                department='Non-Fiction', staff_id='L002', admin_level=2),
-        UserFactory.create_user('scholar', 'Carol Davis', 'carol@university.edu', 'password123',
-                               institution='University of Eldoria', field_of_study='Literature',
+        UserFactory.create_user('scholar', 'Dr. Vikram Mehta', 'vikram@university.edu', 'password123',
+                               institution='University of Delhi', field_of_study='Literature',
                                academic_level='Professor'),
-        UserFactory.create_user('scholar', 'David Wilson', 'david@university.edu', 'password123',
-                               institution='University of Eldoria', field_of_study='History',
+        UserFactory.create_user('scholar', 'Neha Gupta', 'neha@university.edu', 'password123',
+                               institution='University of Mumbai', field_of_study='History',
                                academic_level='Graduate'),
-        UserFactory.create_user('guest', 'Eve Brown', 'eve@example.com', 'password123',
-                               address='123 Main St', phone='555-1234',
+        UserFactory.create_user('guest', 'Arjun Singh', 'arjun@example.com', 'password123',
+                               address='42 Gandhi Road', phone='9876543210',
                                membership_type='Premium',
                                membership_expiry=datetime.now() + timedelta(days=365))
     ]
 
-    # Add users to the catalog
     for user in users:
         catalog.add_user(user)
 
-    # Create some library sections
     sections = [
-        ('Fiction', 'General fiction books', 0),
-        ('Non-Fiction', 'General non-fiction books', 0),
-        ('Fantasy', 'Fantasy and science fiction books', 0),
-        ('Rare Books', 'Rare and valuable books', 1),
-        ('Ancient Manuscripts', 'Ancient manuscripts and scrolls', 2)
+        ('Fiction', 'Contemporary Indian fiction', 0),
+        ('Non-Fiction', 'Indian non-fiction and biographies', 0),
+        ('Classical Literature', 'Classical Indian literature', 0),
+        ('Rare Books', 'Rare and valuable Indian books', 1),
+        ('Ancient Manuscripts', 'Ancient Sanskrit and regional manuscripts', 2)
     ]
 
-    # Add sections to the catalog
     section_ids = {}
     for name, description, access_level in sections:
         section_id = catalog.add_section(name, description, access_level)
         section_ids[name] = section_id
 
-    # Add books to sections
     catalog.add_book_to_section(books[0].book_id, section_ids['Fiction'])
     catalog.add_book_to_section(books[1].book_id, section_ids['Fiction'])
-    catalog.add_book_to_section(books[2].book_id, section_ids['Fantasy'])
+    catalog.add_book_to_section(books[2].book_id, section_ids['Classical Literature'])
     catalog.add_book_to_section(books[3].book_id, section_ids['Rare Books'])
-    catalog.add_book_to_section(books[4].book_id, section_ids['Rare Books'])
+    catalog.add_book_to_section(books[4].book_id, section_ids['Non-Fiction'])
     catalog.add_book_to_section(books[5].book_id, section_ids['Ancient Manuscripts'])
 
     print("Sample data initialized successfully.")
     return catalog
 
-
 def setup_event_system():
-    """Set up the event notification system."""
-    # Create the notification service
+
     notification_service = NotificationService()
 
-    # Create the event manager
     event_manager = LibraryEventManager()
 
-    # Create observers
     librarian_observer = LibrarianNotificationObserver(notification_service)
-    librarian_observer.add_librarian_email('alice@library.com')
-    librarian_observer.add_librarian_email('bob@library.com')
+    librarian_observer.add_librarian_email('aarav@library.com')
+    librarian_observer.add_librarian_email('priya@library.com')
 
-    # Create a user service (using the catalog for simplicity)
     user_service = Catalog()
     user_observer = UserNotificationObserver(notification_service, user_service)
 
-    # Create a logging observer
     logging_observer = LoggingObserver('library_events.log')
 
-    # Attach observers to the event manager
     event_manager.attach(librarian_observer)
     event_manager.attach(user_observer)
     event_manager.attach(logging_observer)
 
     return event_manager
 
-
 def main():
-    """Main entry point for the Enchanted Library system."""
+
     print("Welcome to the Enchanted Library Management System")
     print("=" * 50)
 
-    # Initialize sample data
     catalog = initialize_sample_data()
 
-    # Set up the event system
     event_manager = setup_event_system()
 
-    # Create the library facade
     library = LibraryFacade()
 
-    # Check command line arguments for interface choice
     if len(sys.argv) > 1 and sys.argv[1].lower() == 'gui':
-        # Launch the GUI
         launch_gui(library, catalog, event_manager)
     else:
-        # Ask the user which interface to use
         print("\nChoose an interface:")
         print("1. Command Line Interface (CLI)")
         print("2. Graphical User Interface (GUI)")
@@ -148,13 +123,10 @@ def main():
         choice = input("Enter your choice (1/2): ").strip()
 
         if choice == '2':
-            # Launch the GUI
             launch_gui(library, catalog, event_manager)
         else:
-            # Create and start the CLI
             cli = CommandLineInterface(library, catalog, event_manager)
             cli.start()
-
 
 if __name__ == "__main__":
     main()
