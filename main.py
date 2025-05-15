@@ -1,5 +1,6 @@
 
 import sys
+import os
 from datetime import datetime, timedelta
 
 from models.book import BookCondition, BookStatus
@@ -13,6 +14,8 @@ from patterns.behavioral.notification_observer import (
     LibraryEventManager, LibrarianNotificationObserver,
     UserNotificationObserver, LoggingObserver, NotificationService
 )
+from patterns.structural.data_persistence import DataPersistence
+from database.db_session import init_db
 from ui.cli import CommandLineInterface
 from ui.gui.app import launch_gui
 
@@ -103,11 +106,26 @@ def setup_event_system():
     return event_manager
 
 def main():
-
     print("Welcome to the Enchanted Library Management System")
     print("=" * 50)
 
-    catalog = initialize_sample_data()
+    # Initialize database
+    print("Initializing database...")
+    DataPersistence.initialize_database()
+
+    # Get catalog instance (will initialize from database if available)
+    catalog = Catalog()
+
+    # Check if we need to initialize sample data
+    if not catalog._books:
+        print("No data found in database. Initializing sample data...")
+        catalog = initialize_sample_data()
+
+        # Save sample data to database
+        DataPersistence.save_catalog_to_database(catalog)
+        DataPersistence.save_users_to_database(catalog)
+    else:
+        print(f"Loaded {len(catalog._books)} books and {len(catalog._users)} users from database.")
 
     event_manager = setup_event_system()
 

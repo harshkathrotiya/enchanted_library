@@ -288,21 +288,39 @@ class UserManagementFrame(ttk.Frame):
                 return
 
         try:
+            # Check if a user with this email already exists
+            email = kwargs["email"]
+            existing_user = None
+            for u in self.controller.catalog._users.values():
+                if u.email == email:
+                    existing_user = u
+                    break
+
+            if existing_user:
+                messagebox.showerror("Error", f"A user with email {email} already exists")
+                return
+
+            # Create the user
             user = UserFactory.create_user(user_type, **kwargs)
 
+            # Add to catalog (which will save to database)
             self.controller.catalog.add_user(user)
 
+            # Trigger event
             self.controller.event_manager.user_registered(user)
 
+            # Show success message
             messagebox.showinfo("Success", f"User '{user.name}' added successfully")
 
+            # Clear form fields
             for var_name in self.user_vars:
                 if var_name not in ["admin_level", "membership_type", "academic_level", "membership_duration"]:
                     self.user_vars[var_name].set("")
 
+            # Refresh the user list
             self.populate_user_list()
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Error", f"Failed to add user: {str(e)}")
 
     def create_user_details(self, parent):
 
