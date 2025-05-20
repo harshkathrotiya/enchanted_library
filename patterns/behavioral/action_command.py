@@ -6,18 +6,14 @@ from models.book import BookStatus
 from models.lending import LendingStatus
 
 class LibraryCommand(ABC):
-    
-
     @abstractmethod
     def execute(self):
         
         pass
-
     @abstractmethod
     def undo(self):
         
         pass
-
 class CommandHistory:
     
 

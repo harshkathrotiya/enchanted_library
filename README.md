@@ -12,7 +12,7 @@ A comprehensive library management system with PostgreSQL database support.
 - Recommendation system
 - Command-line and graphical user interfaces
 
-## Database Setup
+## Database Setup:
 
 The Enchanted Library Management System uses PostgreSQL for data storage. Follow these steps to set up the database:
 
